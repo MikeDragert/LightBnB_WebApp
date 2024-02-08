@@ -80,6 +80,8 @@ const getAllReservations = function (guest_id, limit = 10) {
 
 /// Properties
 
+
+
 /**
  * Get all properties.
  * @param {{}} options An object containing query options.
@@ -87,8 +89,57 @@ const getAllReservations = function (guest_id, limit = 10) {
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 const getAllProperties = function (options, limit = 10) {
+  let queryParams = [];
+  let queryWhere = '';
+
+  // function to build the where clause for ONE PROPERTY
+  //   returned through given callback
+  const buildNextWhere = function(criteria, comparator, callback) {
+    let newWhereCriteria = 'WHERE';
+    if (queryParams.length > 1) {
+      newWhereCriteria = ' AND';
+    };
+    newWhereCriteria += ` ${criteria} ${comparator} $${queryParams.length}`;
+    callback(newWhereCriteria);
+  }
+
+  if (options.city) {
+    queryParams.push(`%${options.city}%`);
+    buildNextWhere(`city`, 'LIKE',(newWhereCriteria) => {
+      queryWhere += newWhereCriteria;
+    });
+  };
+
+  if (options.owner_id) {
+    queryParams.push(options.owner_id);
+    buildNextWhere(`owner_id`, '=',(newWhereCriteria) => {
+      queryWhere += newWhereCriteria;
+    });
+  };
+
+  if (options.minimum_price_per_night) {
+    queryParams.push(options.minimum_price_per_night);
+    buildNextWhere(`minimum_price_per_night`, '>=',(newWhereCriteria) => {
+      queryWhere += newWhereCriteria;
+    });
+  };
+
+
+  if (options.maximum_price_per_night) {
+    queryParams.push(options.maximum_price_per_night);
+    buildNextWhere(`maximum_price_per_night`, '<=',(newWhereCriteria) => {
+      queryWhere += newWhereCriteria;
+    });
+  };
+   
+  let queryLimit = '';
+  if (Number(limit) > 0) {
+    queryParams.push(limit);
+    queryLimit = `LIMIT $${queryParams.length}`;
+  }
+  
   return pool
-    .query(`SELECT * FROM properties LIMIT $1;`,[limit])
+    .query(`SELECT * FROM properties ${queryWhere} ${queryLimit};`,queryParams)
     .then(result => {
       return result.rows;
     })
